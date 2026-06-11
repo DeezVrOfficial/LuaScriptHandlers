@@ -1,0 +1,235 @@
+local Support = {}
+local Workspace = cloneref and cloneref(game:GetService("Workspace")) or game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local function VerifyFunction(func)
+    return type(func) == "function"
+end
+
+local function GetExecutor()
+    if VerifyFunction(identifyexecutor) then
+        local name = identifyexecutor()
+        if type(name) == "string" then return name end
+    end
+    if VerifyFunction(getexecutorname) then
+        local name = getexecutorname()
+        if type(name) == "string" then return name end
+    end
+    return "Unknown"
+end
+
+local ExecutorName = GetExecutor()
+
+local function run(f, ...)
+    local ok, res = pcall(f, ...)
+    return ok and res
+end
+
+local function checkDrawing()
+    if not VerifyFunction(Drawing.new) then return false end
+    local line = Drawing.new("Line")
+    local success = (line ~= nil)
+    if success then line:Destroy() end
+    return success
+end
+
+local function checkWriteFile()
+    if not VerifyFunction(writefile) then return false end
+    local success = pcall(function() writefile("verify_t.txt", "test") end)
+    if success and VerifyFunction(delfile) then pcall(delfile, "verify_t.txt") end
+    return success
+end
+
+local function checkReadFile()
+    if not (VerifyFunction(readfile) and VerifyFunction(writefile)) then return false end
+    writefile("verify_r.txt", "test")
+    local content = readfile("verify_r.txt")
+    local success = (content == "test")
+    if VerifyFunction(delfile) then pcall(delfile, "verify_r.txt") end
+    return success
+end
+
+local function checkHui()
+    if not VerifyFunction(gethui) then return false end
+    local hui = gethui()
+    return hui ~= nil and hui:IsA("Instance")
+end
+
+local function checkCaller()
+    if not VerifyFunction(checkcaller) then return false end
+    return checkcaller() == true
+end
+
+local function checkRegistry()
+    if not VerifyFunction(getreg) and not VerifyFunction(getregistry) then return false end
+    local reg = (getreg or getregistry)()
+    return type(reg) == "table" and #reg > 0
+end
+
+local function checkGC()
+    if not VerifyFunction(getgc) then return false end
+    local gc = getgc()
+    return type(gc) == "table" and #gc > 0
+end
+
+local function checkProximity()
+    if not fireproximityprompt then return false end
+    local part = Instance.new("Part",workspace)
+    local prompt = Instance.new("ProximityPrompt", part)
+    local done = false
+    local connection = prompt.Triggered:Connect(function() done = true end)
+    local timeout = 0
+task.wait()
+fireproximityprompt(prompt) 
+    task.wait(1)
+    connection:Disconnect()
+    part:Destroy()
+    return done
+end
+
+local function checkTouch()
+    if not VerifyFunction(firetouchinterest) then return false end
+    local Touched = false
+    local PartA = Instance.new("Part", Workspace)
+    local PartB = Instance.new("Part", Workspace)
+    local connection = PartA.Touched:Connect(function() Touched = true end)
+    firetouchinterest(PartA, PartB, 0)
+    firetouchinterest(PartA, PartB, 1)
+    local start = tick()
+    repeat task.wait() until Touched or (tick() - start > 0.2)
+    connection:Disconnect()
+    PartA:Destroy()
+    PartB:Destroy()
+    return Touched
+end
+
+local function checkRequire()
+    if ExecutorName == "Xeno" or ExecutorName == "Seliware" then return false end
+    local scripts = LocalPlayer:FindFirstChild("PlayerScripts")
+    local mod = scripts and scripts:FindFirstChild("PlayerModule")
+    if mod and VerifyFunction(require) then
+        return pcall(require, mod)
+    end
+    return false
+end
+
+local function checkSignal()
+    return VerifyFunction(replicatesignal)
+end
+
+local function checkHook()
+    if not VerifyFunction(hookmetamethod) then return false end
+    local called = false
+    local original
+    local ok = pcall(function()
+        original = hookmetamethod(game, "__index", function(self, key)
+            if key == "DetectionTest" then
+                called = true
+                return true
+            end
+            return original(self, key)
+        end)
+    end)
+    if ok then
+        local _ = game.DetectionTest
+        hookmetamethod(game, "__index", original)
+    end
+    return called
+end
+
+local function checkisnetworkowner()
+    if not VerifyFunction(isnetworkowner) then return false end
+    local part = Instance.new("Part")
+    local success = pcall(function() return isnetworkowner(part) end)
+    part:Destroy()
+    return success
+end
+
+local function checksethiddenprop()
+    if not VerifyFunction(sethiddenproperty) then return false end
+    local Part = Instance.new("Part")
+    sethiddenproperty(Part, "Massless", true)
+    task.wait()
+    local success = Part.Massless == true
+    Part:Destroy()
+    return success
+end
+
+local function checkgethiddenprop()
+    if not VerifyFunction(gethiddenproperty) then return false end
+    local Part = Instance.new("Part")
+    if VerifyFunction(sethiddenproperty) then
+        sethiddenproperty(Part, "Massless", true)
+    else
+        Part.Massless = true
+    end
+    task.wait()
+    local val = gethiddenproperty(Part, "Massless")
+    local success = (val == true and Part.Massless == true)
+    Part:Destroy()
+    return success
+end
+
+local function checkgetgenv()
+    if not VerifyFunction(getgenv) then return false end
+    local env = getgenv()
+    env.CompatTest = true
+    local success = env.CompatTest == true
+    env.CompatTest = nil
+    return success
+end
+
+local function checkgetnilinstances()
+    if not VerifyFunction(getnilinstances) then return false end
+    local instances = getnilinstances()
+    return type(instances) == "table" and #instances > 0
+end
+
+local function checkIdentify()
+    return VerifyFunction(identifyexecutor) and type(identifyexecutor()) == "string"
+end
+
+local function checkGetName()
+    return VerifyFunction(getexecutorname) and type(getexecutorname()) == "string"
+end
+
+local tests = {
+    {id = "fireproximityprompt", run = checkProximity},
+    {id = "firetouchinterest", run = checkTouch},
+    {id = "require", run = checkRequire},
+    {id = "replicatesignal", run = checkSignal},
+    {id = "hookmetamethod", run = checkHook},
+    {id = "isnetworkowner", run = checkisnetworkowner},
+    {id = "sethiddenproperty", run = checksethiddenprop},
+    {id = "gethiddenproperty", run = checkgethiddenprop},
+    {id = "getgenv", run = checkgetgenv},
+    {id = "getnilinstances", run = checkgetnilinstances},
+    {id = "identifyexecutor", run = checkIdentify},
+    {id = "getexecutorname", run = checkGetName},
+    {id = "Drawing.new", run = checkDrawing},
+    {id = "writefile", run = checkWriteFile},
+    {id = "readfile", run = checkReadFile},
+    {id = "gethui", run = checkHui},
+    {id = "checkcaller", run = checkCaller},
+    {id = "getregistry", run = checkRegistry},
+    {id = "getgc", run = checkGC},
+}
+
+local score = 0
+print("--- Starting compatibility check ---")
+
+for _, t in pairs(tests) do
+    local success = run(t.run)
+    Support[t.id] = success or false
+    local icon = success and "🟢" or "🔴"
+    print(string.format("%s [%s]", icon, t.id))
+    if success then score = score + 1 end
+end
+
+print("-----------------------------------")
+print(string.format("Results: %d/%d (%d%%)", score, #tests, math.floor((score / #tests) * 100)))
+
+if getgenv then getgenv().ExecutorSupport = Support end
+return Support
